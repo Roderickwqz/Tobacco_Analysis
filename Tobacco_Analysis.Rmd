@@ -1,0 +1,13 @@
+---
+title: "Tobacco_Analysis"
+author: "Qizheng Wang"
+date: "5/7/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
