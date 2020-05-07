@@ -11,3 +11,60 @@ library(tidyverse)
 ```
 
 
+## Tobacco Survey Analysis(Binary Generalized linear models)
+
+``` {r data fetch and data modifying}
+smokeFile = 'smokeDownload.RData'
+if(!file.exists(smokeFile)){
+	download.file(
+			'https://github.com/Roderickwqz/Tobacco_Analysis/blob/master/smoke.RData',
+			smokeFile)
+}
+(load(smokeFile))
+
+smokeFormats[ 
+  smokeFormats[,'colName'] == 'chewing_tobacco_snuff_or', 
+  c('colName','label')]
+
+smokeSub = smoke[which(smoke$Age > 10 & !is.na(smoke$Race)), ] 
+smokeSub$ageC = smokeSub$Age - 16 
+
+```
+
+``` {r models}
+smokeModel = glm(chewing_tobacco_snuff_or ~ ageC + RuralUrban + Race + Sex, data=smokeSub, family=binomial(link='logit'))
+
+knitr::kable(summary(smokeModel)$coef, digits=3)
+
+logOddsMat = cbind(est=smokeModel$coef, confint(smokeModel, level=0.99)) 
+
+oddsMat = exp(logOddsMat)
+oddsMat[1,] = oddsMat[1,] / (1+oddsMat[1,])
+rownames(oddsMat)[1] = 'Baseline prob' 
+knitr::kable(oddsMat, digits=3)
+```
+
+### Step 1: establish smokeModel
+$$\log(\frac{\mu_i}{1-\mu_i}) = \boldsymbol{X_i\beta} $$
+For this GLM, I use logistic regression, where response is proportion of students using chewing tobacco, snuff or dip at least once in the last 30 days. The response is linked to a linear combination of covariates with logit link.\newline
+Covariates $X_i$ represents the age parameter(centered at 16), the rural or urban factor, and dummy variables for races, and sex(Malse as the reference level).
+
+### Hypothesis based on TV
+
+If American TV is to believed, chewing tobacco is popular among cowboys, and cowboys are white, male and live in rural areas. Thus addressing the hypothesis that rural white males are the group most likely to use chewing tobacco, and there is reasonable certainty that less than half of one percent of ethnic-minority urban women and girls chew tobacco\newline
+
+``` {r }
+newData = data.frame(Sex = rep(c('M','F'), c(3,2)),
+                     Race = c('white','white','hispanic','black','asian'), 
+                      ageC = 0, RuralUrban = rep(c('Rural','Urban'), c(1,4)))
+smokePred = as.data.frame(predict(smokeModel, newData, se.fit=TRUE, type='link'))[,1:2]
+smokePred$lower = smokePred$fit - 3*smokePred$se.fit
+smokePred$upper = smokePred$fit + 3*smokePred$se.fit
+smokePred
+
+expSmokePred = exp(smokePred[,c('fit','lower','upper')])
+knitr::kable(cbind(newData[,-3],1000*expSmokePred/(1+expSmokePred)), digits=1)
+```
+Based on the results, rural, white males have the highest usage in the taBle since CI doesn't overlap with others.\newline
+Female minorites fit's value are 2.3+2.4=4.7, which divided by 1000 is smaller than the 0.5%. Thus it is reasonable certainty that less than half of one percent of ethnic-minority urban women and girls chew tabacco.
+
